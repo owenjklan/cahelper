@@ -7,16 +7,24 @@ from subprocess import check_call, CalledProcessError
 from jinja2 import Template
 
 from dialogs import (get_country_code, get_key_size, dialog_input,
-    msgbox, yesno)
+    msgbox, yesno, error_and_exit,)
 
 
 def generate_ca_openssl_config(values):
+    """
+    Generate the OpenSSL config file to be used with the openssl 'ca'
+    command.
+    """
     template = Template(open("../ca_openssl_config.j2", "r").read())
     rendered = template.render(values)
     return rendered
 
 
 def generate_ca_cert_config(values):
+    """
+    Generate the CA's certificate, that will be used for signing
+    other certificates.
+    """
     template = Template(open("../ca_cert_config.j2", "r").read())
     rendered = template.render(values)
     return rendered
@@ -27,7 +35,7 @@ def get_and_confirm_ca_name():
         name = dialog_input("Enter a name for the CA")
         ca_name = name.strip().replace(' ', '_').lower() + "_ca"
         name_okay = yesno((
-	    "The new CA will be based in the following directory:\n\n"
+        "The new CA will be based in the following directory:\n\n"
             "  {}\n\n"
             "Is this okay?".format(ca_name)))
         if name_okay == "ok":
@@ -47,10 +55,10 @@ def generate_rsa_key(keysize, filename):
 def generate_ca_cert(confname, keyfile, outname):
     cmd = [
         "openssl", "req", "-new", "-x509",
-	"-key", keyfile, "-out", outname
-    ] 
+        "-config", confname, "-key", keyfile, "-out", outname
+    ]
     try:
-	check_call(cmd)
+        check_call(cmd)
     except CalledProcessError as cpe:
         error_and_exit("Failure creating CA key and cert!")
 
@@ -83,11 +91,17 @@ def main():
     values['dn_locality'] = dialog_input("Locality", initial="Brisbane")
     values['dn_org'] = dialog_input("Organisation")
     values['dn_org_unit'] = dialog_input("Organisational Unit")
-    values['dn_cn'] = dialog_input("Common Name",
-        initial=ca_name_original + " CA")
-
-    with open(values['ca_name'] + ".conf", "w") as conffile:
+    values['dn_cn'] = dialog_input(
+        "Common Name", initial=ca_name_original + " CA")
+    ca_conf_name = values['ca_name'] + ".conf"
+    with open(ca_conf_name, "w") as conffile:
         conffile.write(generate_ca_cert_config(values))
+
+    generate_ca_cert(
+        ca_conf_name,
+        values['ca_priv_filename'],
+        ca_disk_name + ".crt",
+    )
 
 
 if __name__ == '__main__':

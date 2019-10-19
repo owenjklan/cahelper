@@ -5,30 +5,8 @@ import subprocess
 from subprocess import CalledProcessError, Popen, PIPE, check_call
 import textwrap
 
-from dialog import (Dialog, )
-
-
-dialog = Dialog()
-dialog.add_persistent_args(
-    ["--backtitle", "Custom CA Creation Helper"])
-
-
-def error_and_exit(message):
-    wrapped_text = textwrap.wrap(message, width=40)
-    height = len(wrapped_text) + 4
-    dialog.msgbox("\n".join(wrapped_text), height=height, width=44)
-    sys.exit(1)
-
-
-def dialog_input(message, initial=None):
-    if initial:
-        result, data = dialog.inputbox(message, 8, 40, init=initial)
-    else:
-        result, data = dialog.inputbox(message, 8, 40)
-
-    if result != "ok":
-        return None
-    return data
+from dialogs import (dialog_input, get_key_size, get_country_code,
+    error_and_exit, msgbox)
 
 
 def generate_rsa_key(domain, keysize, filename):
@@ -54,21 +32,6 @@ def extract_public_key(filename):
     return outname
 
 
-def get_key_size():
-    result, key_size = dialog.radiolist(
-        "Select key size for CA private key",
-        height=12, width=30, list_height=3,
-        choices=[
-            ("1024", "1024", False),
-            ("2048", "2048", True),
-            ("4096", "4096", False),
-        ])
-
-    if result != "ok":
-        return None
-    return key_size
-
-
 def main():
     domain_name = dialog_input("Domain Name")
     key_size = get_key_size()
@@ -77,8 +40,7 @@ def main():
     generate_rsa_key(domain_name, key_size, filename)
     pubkey_filename = extract_public_key(filename)
 
-    dialog.msgbox(
-        "Public key extracted to: {}".format(pubkey_filename), height=7)
+    msgbox("Public key extracted to: {}".format(pubkey_filename))
 
 
 if __name__ == '__main__':

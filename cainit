@@ -1,316 +1,83 @@
 #!/usr/bin/env python3
+import os
+import time
 import subprocess
 from subprocess import check_call, CalledProcessError
 
 from jinja2 import Template
 
-import dialog
-from dialog import (Dialog, )
-
-
-dialog = Dialog()
-dialog.add_persistent_args(
-    ["--backtitle", "Custom CA Creation Helper"])
-
-
-def dialog_input(message, initial=None):
-    if initial:
-        result, data = dialog.inputbox(message, 8, 40, init=initial)
-    else:
-        result, data = dialog.inputbox(message, 8, 40)
-
-    if result != "ok":
-        return None
-    return data
-
-
-def get_key_size():
-    result, key_size = dialog.radiolist(
-        "Select key size for CA private key",
-        height=12, width=30, list_height=3,
-        choices=[
-            ("1024", "1024", False),
-            ("2048", "2048", True),
-            ("4096", "4096", False),
-        ])
-
-    if result != "ok":
-        return None
-    return key_size
-
-
-def get_country_code():
-    status, value = dialog.radiolist("Country Code",
-        choices=[
-            ("AF", "Afghanistan", False),
-            ("AX", "Åland Islands", False),
-            ("AL", "Albania", False),
-            ("DZ", "Algeria", False),
-            ("AS", "American Samoa", False),
-            ("AD", "Andorra", False),
-            ("AO", "Angola", False),
-            ("AI", "Anguilla", False),
-            ("AQ", "Antarctica", False),
-            ("AG", "Antigua and Barbuda", False),
-            ("AR", "Argentina", False),
-            ("AM", "Armenia", False),
-            ("AW", "Aruba", False),
-            ("AU", "Australia", True),
-            ("AT", "Austria", False),
-            ("AZ", "Azerbaijan", False),
-            ("BS", "Bahamas", False),
-            ("BH", "Bahrain", False),
-            ("BD", "Bangladesh", False),
-            ("BB", "Barbados", False),
-            ("BY", "Belarus", False),
-            ("BE", "Belgium", False),
-            ("BZ", "Belize", False),
-            ("BJ", "Benin", False),
-            ("BM", "Bermuda", False),
-            ("BT", "Bhutan", False),
-            ("BO", "Bolivia (Plurinational State of)", False),
-            ("BQ", "Bonaire, Sint Eustatius and Saba", False),
-            ("BA", "Bosnia and Herzegovina", False),
-            ("BW", "Botswana", False),
-            ("BV", "Bouvet Island", False),
-            ("BR", "Brazil", False),
-            ("IO", "British Indian Ocean Territory", False),
-            ("BN", "Brunei Darussalam", False),
-            ("BG", "Bulgaria", False),
-            ("BF", "Burkina Faso", False),
-            ("BI", "Burundi", False),
-            ("CV", "Cabo Verde", False),
-            ("KH", "Cambodia", False),
-            ("CM", "Cameroon", False),
-            ("CA", "Canada", False),
-            ("KY", "Cayman Islands", False),
-            ("CF", "Central African Republic", False),
-            ("TD", "Chad", False),
-            ("CL", "Chile", False),
-            ("CN", "China", False),
-            ("CX", "Christmas Island", False),
-            ("CC", "Cocos (Keeling) Islands", False),
-            ("CO", "Colombia", False),
-            ("KM", "Comoros", False),
-            ("CG", "Congo", False),
-            ("CD", "Congo, Democratic Republic of the", False),
-            ("CK", "Cook Islands", False),
-            ("CR", "Costa Rica", False),
-            ("CI", "Côte d'Ivoire", False),
-            ("HR", "Croatia", False),
-            ("CU", "Cuba", False),
-            ("CW", "Curaçao", False),
-            ("CY", "Cyprus", False),
-            ("CZ", "Czechia", False),
-            ("DK", "Denmark", False),
-            ("DJ", "Djibouti", False),
-            ("DM", "Dominica", False),
-            ("DO", "Dominican Republic", False),
-            ("EC", "Ecuador", False),
-            ("EG", "Egypt", False),
-            ("SV", "El Salvador", False),
-            ("GQ", "Equatorial Guinea", False),
-            ("ER", "Eritrea", False),
-            ("EE", "Estonia", False),
-            ("SZ", "Eswatini", False),
-            ("ET", "Ethiopia", False),
-            ("FK", "Falkland Islands (Malvinas)", False),
-            ("FO", "Faroe Islands", False),
-            ("FJ", "Fiji", False),
-            ("FI", "Finland", False),
-            ("FR", "France", False),
-            ("GF", "French Guiana", False),
-            ("PF", "French Polynesia", False),
-            ("TF", "French Southern Territories", False),
-            ("GA", "Gabon", False),
-            ("GM", "Gambia", False),
-            ("GE", "Georgia", False),
-            ("DE", "Germany", False),
-            ("GH", "Ghana", False),
-            ("GI", "Gibraltar", False),
-            ("GR", "Greece", False),
-            ("GL", "Greenland", False),
-            ("GD", "Grenada", False),
-            ("GP", "Guadeloupe", False),
-            ("GU", "Guam", False),
-            ("GT", "Guatemala", False),
-            ("GG", "Guernsey", False),
-            ("GN", "Guinea", False),
-            ("GW", "Guinea-Bissau", False),
-            ("GY", "Guyana", False),
-            ("HT", "Haiti", False),
-            ("HM", "Heard Island and McDonald Islands", False),
-            ("VA", "Holy See", False),
-            ("HN", "Honduras", False),
-            ("HK", "Hong Kong", False),
-            ("HU", "Hungary", False),
-            ("IS", "Iceland", False),
-            ("IN", "India", False),
-            ("ID", "Indonesia", False),
-            ("IR", "Iran (Islamic Republic of)", False),
-            ("IQ", "Iraq", False),
-            ("IE", "Ireland", False),
-            ("IM", "Isle of Man", False),
-            ("IL", "Israel", False),
-            ("IT", "Italy", False),
-            ("JM", "Jamaica", False),
-            ("JP", "Japan", False),
-            ("JE", "Jersey", False),
-            ("JO", "Jordan", False),
-            ("KZ", "Kazakhstan", False),
-            ("KE", "Kenya", False),
-            ("KI", "Kiribati", False),
-            ("KP", "Korea (Democratic People's Republic of)", False),
-            ("KR", "Korea, Republic of", False),
-            ("KW", "Kuwait", False),
-            ("KG", "Kyrgyzstan", False),
-            ("LA", "Lao People's Democratic Republic", False),
-            ("LV", "Latvia", False),
-            ("LB", "Lebanon", False),
-            ("LS", "Lesotho", False),
-            ("LR", "Liberia", False),
-            ("LY", "Libya", False),
-            ("LI", "Liechtenstein", False),
-            ("LT", "Lithuania", False),
-            ("LU", "Luxembourg", False),
-            ("MO", "Macao", False),
-            ("MG", "Madagascar", False),
-            ("MW", "Malawi", False),
-            ("MY", "Malaysia", False),
-            ("MV", "Maldives", False),
-            ("ML", "Mali", False),
-            ("MT", "Malta", False),
-            ("MH", "Marshall Islands", False),
-            ("MQ", "Martinique", False),
-            ("MR", "Mauritania", False),
-            ("MU", "Mauritius", False),
-            ("YT", "Mayotte", False),
-            ("MX", "Mexico", False),
-            ("FM", "Micronesia (Federated States of)", False),
-            ("MD", "Moldova, Republic of", False),
-            ("MC", "Monaco", False),
-            ("MN", "Mongolia", False),
-            ("ME", "Montenegro", False),
-            ("MS", "Montserrat", False),
-            ("MA", "Morocco", False),
-            ("MZ", "Mozambique", False),
-            ("MM", "Myanmar", False),
-            ("NA", "Namibia", False),
-            ("NR", "Nauru", False),
-            ("NP", "Nepal", False),
-            ("NL", "Netherlands", False),
-            ("NC", "New Caledonia", False),
-            ("NZ", "New Zealand", False),
-            ("NI", "Nicaragua", False),
-            ("NE", "Niger", False),
-            ("NG", "Nigeria", False),
-            ("NU", "Niue", False),
-            ("NF", "Norfolk Island", False),
-            ("MK", "North Macedonia", False),
-            ("MP", "Northern Mariana Islands", False),
-            ("NO", "Norway", False),
-            ("OM", "Oman", False),
-            ("PK", "Pakistan", False),
-            ("PW", "Palau", False),
-            ("PS", "Palestine, State of", False),
-            ("PA", "Panama", False),
-            ("PG", "Papua New Guinea", False),
-            ("PY", "Paraguay", False),
-            ("PE", "Peru", False),
-            ("PH", "Philippines", False),
-            ("PN", "Pitcairn", False),
-            ("PL", "Poland", False),
-            ("PT", "Portugal", False),
-            ("PR", "Puerto Rico", False),
-            ("QA", "Qatar", False),
-            ("RE", "Réunion", False),
-            ("RO", "Romania", False),
-            ("RU", "Russian Federation", False),
-            ("RW", "Rwanda", False),
-            ("BL", "Saint Barthélemy", False),
-            ("SH", "Saint Helena, Ascension and Tristan da Cunha", False),
-            ("KN", "Saint Kitts and Nevis", False),
-            ("LC", "Saint Lucia", False),
-            ("MF", "Saint Martin (French part)", False),
-            ("PM", "Saint Pierre and Miquelon", False),
-            ("VC", "Saint Vincent and the Grenadines", False),
-            ("WS", "Samoa", False),
-            ("SM", "San Marino", False),
-            ("ST", "Sao Tome and Principe", False),
-            ("SA", "Saudi Arabia", False),
-            ("SN", "Senegal", False),
-            ("RS", "Serbia", False),
-            ("SC", "Seychelles", False),
-            ("SL", "Sierra Leone", False),
-            ("SG", "Singapore", False),
-            ("SX", "Sint Maarten (Dutch part)", False),
-            ("SK", "Slovakia", False),
-            ("SI", "Slovenia", False),
-            ("SB", "Solomon Islands", False),
-            ("SO", "Somalia", False),
-            ("ZA", "South Africa", False),
-            ("GS", "South Georgia and the South Sandwich Islands", False),
-            ("SS", "South Sudan", False),
-            ("ES", "Spain", False),
-            ("LK", "Sri Lanka", False),
-            ("SD", "Sudan", False),
-            ("SR", "Suriname", False),
-            ("SJ", "Svalbard and Jan Mayen", False),
-            ("SE", "Sweden", False),
-            ("CH", "Switzerland", False),
-            ("SY", "Syrian Arab Republic", False),
-            ("TW", "Taiwan, Province of China", False),
-            ("TJ", "Tajikistan", False),
-            ("TZ", "Tanzania, United Republic of", False),
-            ("TH", "Thailand", False),
-            ("TL", "Timor-Leste", False),
-            ("TG", "Togo", False),
-            ("TK", "Tokelau", False),
-            ("TO", "Tonga", False),
-            ("TT", "Trinidad and Tobago", False),
-            ("TN", "Tunisia", False),
-            ("TR", "Turkey", False),
-            ("TM", "Turkmenistan", False),
-            ("TC", "Turks and Caicos Islands", False),
-            ("TV", "Tuvalu", False),
-            ("UG", "Uganda", False),
-            ("UA", "Ukraine", False),
-            ("AE", "United Arab Emirates", False),
-            ("GB", "United Kingdom of Great Britain and Northern Ireland", False),
-            ("US", "United States of America", False),
-            ("UM", "United States Minor Outlying Islands", False),
-            ("UY", "Uruguay", False),
-            ("UZ", "Uzbekistan", False),
-            ("VU", "Vanuatu", False),
-            ("VE", "Venezuela (Bolivarian Republic of)", False),
-            ("VN", "Viet Nam", False),
-            ("VG", "Virgin Islands (British)", False),
-            ("VI", "Virgin Islands (U.S.)", False),
-            ("WF", "Wallis and Futuna", False),
-            ("EH", "Western Sahara", False),
-            ("YE", "Yemen", False),
-            ("ZM", "Zambia", False),
-            ("ZW", "Zimbabwe", False),
-        ])
-    return value
+from dialogs import (get_country_code, get_key_size, dialog_input,
+    msgbox, yesno)
 
 
 def generate_ca_openssl_config(values):
-    template = Template(open("ca_openssl_config.j2", "r").read())
+    template = Template(open("../ca_openssl_config.j2", "r").read())
     rendered = template.render(values)
     return rendered
 
 
+def generate_ca_cert_config(values):
+    template = Template(open("../ca_cert_config.j2", "r").read())
+    rendered = template.render(values)
+    return rendered
+
+
+def get_and_confirm_ca_name():
+    while True:
+        name = dialog_input("Enter a name for the CA")
+        ca_name = name.strip().replace(' ', '_').lower() + "_ca"
+        name_okay = yesno((
+	    "The new CA will be based in the following directory:\n\n"
+            "  {}\n\n"
+            "Is this okay?".format(ca_name)))
+        if name_okay == "ok":
+            return (name, ca_name)
+
+
+def generate_rsa_key(keysize, filename):
+    cmd = [
+        "openssl", "genrsa", "-out", filename, keysize
+    ]
+    try:
+        check_call(cmd)
+    except CalledProcessError as cpe:
+        error_and_exit("Failure generating RSA key!")
+
+
+def generate_ca_cert(confname, keyfile, outname):
+    cmd = [
+        "openssl", "req", "-new", "-x509",
+	"-key", keyfile, "-out", outname
+    ] 
+    try:
+	check_call(cmd)
+    except CalledProcessError as cpe:
+        error_and_exit("Failure creating CA key and cert!")
+
+
+def init_ca_directory(dirname):
+    os.mkdir(dirname)
+    os.chdir(dirname)
+    os.mkdir("newcerts")
+    index = open("index.txt", "w")
+    index.close()
+    with open("serial", "w") as serial:
+        serial.write(str(time.time()).split('.')[0])
+
+
 def main():
     values = {}
-    ca_name = dialog_input("Enter a name for the CA")
-    ca_name_original = ca_name
-    values['ca_name'] = ca_name.strip().replace(' ', '_').lower()
 
+    ca_name_original, ca_disk_name = get_and_confirm_ca_name()
+    values['ca_name'] = ca_disk_name
+
+    init_ca_directory(ca_disk_name)
     values['ca_key_size'] = get_key_size()
     values['ca_priv_filename'] = dialog_input(
         "Name of CA Private Key file",
         initial=values['ca_name'] + ".key")
+    generate_rsa_key(values['ca_key_size'], values['ca_priv_filename'])
+
     values['dn_country'] = get_country_code()
     values['dn_state'] = dialog_input("State", initial="Queensland")
     values['dn_locality'] = dialog_input("Locality", initial="Brisbane")
@@ -320,7 +87,7 @@ def main():
         initial=ca_name_original + " CA")
 
     with open(values['ca_name'] + ".conf", "w") as conffile:
-        conffile.write(generate_ca_openssl_config(values))
+        conffile.write(generate_ca_cert_config(values))
 
 
 if __name__ == '__main__':
